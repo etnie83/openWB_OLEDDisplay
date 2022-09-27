@@ -466,7 +466,7 @@ void UpdateDisplay()
         display.println("HB (kW)");
       }
       display.setTextSize(2);
-      WriteWattValue(HB_W, SCREEN_WIDTH/2-shift_k_value-shift_dot-3*12, 50);
+      WriteWattValue(HB_W, SCREEN_WIDTH/2-shift_k_value-shift_dot, 50);
       
       display.setTextSize(1);
       display.setCursor(SCREEN_WIDTH-9*6,40); // Text size 1 has width of 6
@@ -539,7 +539,7 @@ void UpdateDisplay()
   {
     display.drawBitmap(10+30, 27, arrow_right, 8, 10, WHITE);
   }
-  if (HB_W < 0)
+  else if (HB_W < 0)
   {
     display.drawBitmap(10+30, 27, arrow_left, 8, 10, WHITE);
   }  
@@ -547,6 +547,7 @@ void UpdateDisplay()
   // if battery empty than disable the arrow
   {
     display.drawBitmap(10+30, 27, arrow_left, 8, 10, BLACK);
+    display.drawBitmap(10+30, 27, arrow_right, 8, 10, BLACK);
   }
   if (HB_W != 0)
   {

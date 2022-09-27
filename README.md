@@ -1,3 +1,10 @@
+This is a fork of MartinRinas openWB_OLEDDisplay
+but with the change to display the housebattery and the direction of the power
+![Screenshot of Display](images/HB_Bitmap.jpg)
+
+If the LP didnt charged, you see the Load of the housebattery (HB) and the housebattery SoC
+![Screenshot of Display](images/HB_Complete.jpg)
+
 # openWB_OLEDDisplay
 OpenWB status display using ESP8266 and 0.96" OLED Display.
 Displays current EVU, PV and combined power of all charging ports plus SoC of charge port 1 and if this charge port is plugged in (P) or charging (C).
