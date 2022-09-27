@@ -19,12 +19,12 @@
 // ***********************************
 
 // Network setup
-const char* ssid = "YOUR-SSID";              // your network SSID (name)
-const char* pass = "YOUR-WiFi-Password";        // your network password
+const char* ssid = "OWNSSID";              // your network SSID (name)
+const char* pass = "OWNPASSWORD";        // your network password
 const char* hostname = "openWB-Display";      
 
 // MQTT Setup
-IPAddress MQTT_Broker(192,168,10,140); // openWB IP address
+IPAddress MQTT_Broker(192,168,0,105); // openWB IP address
 const int MQTT_Broker_Port = 1883;
 
 // MQTT topics and variables for retrieved values
@@ -55,6 +55,11 @@ bool LP1_PlugStat = false;
 const char* MQTT_LP1_IsCharging = "openWB/lp/1/boolChargeStat"; // charging active?
 bool LP1_IsCharging = false;
 
+const char* MQTT_HB_W = "openWB/housebattery/W"; // HouseBattery Charge/Discharge
+int HB_W = 0;
+
+const char* MQTT_HB_SOC = "openWB/housebattery/%Soc"; // HouseBattery Charge/Discharge
+int HB_SOC = 0;
 
 // Display Setup
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
@@ -73,6 +78,9 @@ const uint8_t arrow_right[10] = { 0x00, 0x08, 0x0c, 0x0e,
 const uint8_t arrow_left[10] = { 0x00, 0x10, 0x30, 0x70,
                                  0xff, 0xff, 0x70, 0x30,
                                  0x10, 0x00 };
+const uint8_t battery[10] = { 0x00, 0x00, 0x66, 0xff,
+                              0xff, 0xdf, 0x89, 0xdf,
+                              0xff,0xff};
 const uint8_t haus[15] = { 0x0c, 0x01, 0xe0, 0x3f, 
                            0x07, 0xf8, 0xff, 0xcc, 
                            0xcc, 0xcc, 0xcf, 0xcc,
@@ -157,6 +165,8 @@ boolean MQTTReconnect()
     r = MQTTClient.subscribe(MQTT_LP1_SOC);
     r = MQTTClient.subscribe(MQTT_LP1_IsCharging);
     r = MQTTClient.subscribe(MQTT_LP1_PlugStat);
+    r = MQTTClient.subscribe(MQTT_HB_W);
+    r = MQTTClient.subscribe(MQTT_HB_SOC);
   }
   return MQTTClient.connected();
 }
@@ -213,6 +223,8 @@ void MQTTCallback(char* topic, byte* payload, unsigned int length)
   if (strcmp(topic,"openWB/lp/1/%Soc")==0){LP1_SOC = msg.toInt();}
   if (strcmp(topic,"openWB/lp/1/boolChargeStat")==0){LP1_IsCharging = msg.toInt();}
   if (strcmp(topic,"openWB/lp/1/boolPlugStat")==0){LP1_PlugStat = msg.toInt();}
+  if (strcmp(topic,"openWB/housebattery/W")==0){HB_W = msg.toInt();}
+  if (strcmp(topic,"openWB/housebattery/%Soc")==0){HB_SOC = msg.toInt();}
   
   // processed incoming message, lets update the display
   UpdateDisplay();
@@ -239,8 +251,8 @@ void WriteWattValue(int Watt, int x, int y)
   // check if Watt Value is smaller than 1000 (=1kW)
   if (Watt < 1000)
   {
-	// value is smaller than 1kW, 
-	// need to write value right-aligned
+  // value is smaller than 1kW, 
+  // need to write value right-aligned
     if (Watt < 10)
     {
       display.setCursor(x-1*12, y);
@@ -409,7 +421,7 @@ void UpdateDisplay()
   if (EVU_W < 1000)
   {
     // display description and value in W
-    display.println(" EVU (W)");
+    display.println("EVU (W)");
   }
   else
   {
@@ -425,7 +437,7 @@ void UpdateDisplay()
   if (PV_W < 1000)
   {
     // display description and value in W
-    display.println(" PV (W)");
+    display.println("PV (W)");
   }
   else
   {
@@ -437,52 +449,113 @@ void UpdateDisplay()
 
   display.setTextSize(1);
   display.setCursor(SCREEN_WIDTH/2-shift_k_value-shift_dot-8*6,40); // Text size 1 has width of 6
-  // check if ALL LP power is smaller than 1 kW
-  if (LP_all_W < 1000)
-  {
-    // display description and value in W
-    display.println(" ALL (W)");
-  }
-  else
-  {
-    // display description and value in kW
-    display.println("ALL (kW)");
-  }
-  display.setTextSize(2);
-  WriteWattValue(LP_all_W, SCREEN_WIDTH/2-shift_k_value-shift_dot, 50);
   
-  display.setTextSize(1);
-  display.setCursor(SCREEN_WIDTH-9*6,40); // Text size 1 has width of 6
-  display.println(ChargeStatus+" SoC LP1"); // Charge Status as Symbol also available, could be removed from this line
-  display.setTextSize(2);
-  if (LP1_SOC < 10)
-  {
-    display.setCursor(SCREEN_WIDTH-2*12,50);
-  }
-  else if (LP1_SOC < 100)
-  {
-    display.setCursor(SCREEN_WIDTH-3*12,50);
-  }
-  else 
-  {
-    display.setCursor(SCREEN_WIDTH-4*12,50);
-  }
-  display.print(String(LP1_SOC)+"%");
+  // Change between LP and HouseBattery
+  //
+  // check if ALL LP power is smaller than 1 kW
+  if (LP_all_W == 0 && HB_W != 0)
+    {
+      if (HB_W < 1000)
+      {
+        // display description and value in W
+        display.println("HB (W)");
+      }
+      else
+      {
+        // display description and value in kW
+        display.println("HB (kW)");
+      }
+      display.setTextSize(2);
+      WriteWattValue(HB_W, SCREEN_WIDTH/2-shift_k_value-shift_dot-3*12, 50);
+      
+      display.setTextSize(1);
+      display.setCursor(SCREEN_WIDTH-9*6,40); // Text size 1 has width of 6
+      display.println("  SoC HB"); // Charge Status as Symbol also available, could be removed from this line
+      display.setTextSize(2);
+      if (HB_SOC < 10)
+      {
+        display.setCursor(SCREEN_WIDTH-2*12,50);
+      }
+      else if (HB_SOC < 100)
+      {
+        display.setCursor(SCREEN_WIDTH-3*12,50);
+      }
+      else 
+      {
+        display.setCursor(SCREEN_WIDTH-4*12,50);
+      }
+      display.print(String(HB_SOC)+"%");
+    }
+  else
+    {
+      if (LP_all_W < 1000)
+      {
+        // display description and value in W
+        display.println(" LP (W)");
+      }
+      else
+      {
+        // display description and value in kW
+        display.println(" LP (kW)");
+      }
+      display.setTextSize(2);
+      WriteWattValue(LP_all_W, SCREEN_WIDTH/2-shift_k_value-shift_dot, 50);
+      
+      display.setTextSize(1);
+      display.setCursor(SCREEN_WIDTH-9*6,40); // Text size 1 has width of 6
+      display.println(ChargeStatus+" SoC LP1"); // Charge Status as Symbol also available, could be removed from this line
+      display.setTextSize(2);
+      if (LP1_SOC < 10)
+      {
+        display.setCursor(SCREEN_WIDTH-2*12,50);
+      }
+      else if (LP1_SOC < 100)
+      {
+        display.setCursor(SCREEN_WIDTH-3*12,50);
+      }
+      else 
+      {
+        display.setCursor(SCREEN_WIDTH-4*12,50);
+      }
+      display.print(String(LP1_SOC)+"%");
+    }
 
   // drawing if energy is imported or exported
   // drawing the Power Symbol
-  display.drawBitmap(20+0, 27, blitz, 8, 10, WHITE);
+  display.drawBitmap(10+0, 27, blitz, 8, 10, WHITE);
   // drawing the arrow (from or to house)
   if (EVU_dir > 0)
   {
-    display.drawBitmap(20+8, 27, arrow_right, 8, 10, WHITE);
+    display.drawBitmap(10+8, 27, arrow_right, 8, 10, WHITE);
   }
   else
   {
-    display.drawBitmap(20+8, 27, arrow_left, 8, 10, WHITE);
+    display.drawBitmap(10+8, 27, arrow_left, 8, 10, WHITE);
   }
   // drawing the house
-  display.drawBitmap(20+18, 27, haus2, 16, 10, WHITE);
+  display.drawBitmap(10+18, 27, haus2, 16, 10, WHITE);
+  // drawing the battery (in/out)
+  if (HB_W > 0)
+  {
+    display.drawBitmap(10+30, 27, arrow_right, 8, 10, WHITE);
+  }
+  if (HB_W < 0)
+  {
+    display.drawBitmap(10+30, 27, arrow_left, 8, 10, WHITE);
+  }  
+  else
+  // if battery empty than disable the arrow
+  {
+    display.drawBitmap(10+30, 27, arrow_left, 8, 10, BLACK);
+  }
+  if (HB_W != 0)
+  {
+    display.drawBitmap(10+40, 27, battery, 8, 10, WHITE);
+  }
+  else
+  {
+    display.drawBitmap(10+40, 27, battery, 8, 10, BLACK);
+  }
 
   // drawing the status of the charging station PLUGGED - UNPLUGGED - CHARGING (charging is also plugged!)
   if(LP1_IsCharging)
