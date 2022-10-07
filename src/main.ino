@@ -34,6 +34,7 @@ float EVU_kW = 0;
 #else UI_GRAPHIC_STYLE
 int EVU_W = 0;
 int EVU_dir = 1;
+int HB_dir = 1;
 #endif
 
 const char* MQTT_PV_W = "openWB/pv/W";      // current PV power
@@ -223,7 +224,12 @@ void MQTTCallback(char* topic, byte* payload, unsigned int length)
   if (strcmp(topic,"openWB/lp/1/%Soc")==0){LP1_SOC = msg.toInt();}
   if (strcmp(topic,"openWB/lp/1/boolChargeStat")==0){LP1_IsCharging = msg.toInt();}
   if (strcmp(topic,"openWB/lp/1/boolPlugStat")==0){LP1_PlugStat = msg.toInt();}
-  if (strcmp(topic,"openWB/housebattery/W")==0){HB_W = msg.toInt();}
+  if (strcmp(topic,"openWB/housebattery/W")==0){ HB_W = (msg.toInt()); HB_dir = 1;
+                                        if (HB_W < 0)
+                                        {
+                                           HB_W = HB_W*(-1);
+                                           HB_dir = -1;
+                                        }}
   if (strcmp(topic,"openWB/housebattery/%Soc")==0){HB_SOC = msg.toInt();}
   
   // processed incoming message, lets update the display
@@ -535,16 +541,21 @@ void UpdateDisplay()
   // drawing the house
   display.drawBitmap(10+18, 27, haus2, 16, 10, WHITE);
   // drawing the battery (in/out)
-  if (HB_W > 0)
+  if (HB_W == 0)
+  {
+    display.drawBitmap(10+30, 27, arrow_left, 8, 10, BLACK);
+    display.drawBitmap(10+30, 27, arrow_right, 8, 10, BLACK);
+  }
+  else if (HB_dir > 0)
   {
     display.drawBitmap(10+30, 27, arrow_right, 8, 10, WHITE);
   }
-  else if (HB_W < 0)
+  else if (HB_dir < 0)
   {
     display.drawBitmap(10+30, 27, arrow_left, 8, 10, WHITE);
   }  
   else
-  // if battery empty than disable the arrow
+  // if battery load = 0 than disable the arrow
   {
     display.drawBitmap(10+30, 27, arrow_left, 8, 10, BLACK);
     display.drawBitmap(10+30, 27, arrow_right, 8, 10, BLACK);
